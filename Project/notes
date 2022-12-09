@@ -1,3 +1,9 @@
 Postgres run on docker container as normal deployment for convieniece only, should do stateful set or smh
 
 Remember to connect to pgadmin as host : Postgres   // since it's running on docker container not localhost
+
+
+// to fix the port not opening issue in docker run these
+net stop winnat
+docker start container_name
+net start winnat

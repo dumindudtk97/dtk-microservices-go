@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 )
 
@@ -50,21 +51,22 @@ func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 
 	// create json to send to the auth microservice
 	jsonData, _ := json.MarshalIndent(a, "", "\t") // _ this is ignored error returning from fn
-
-	// build the request and call authentication service
+	log.Printf("jsonData: %#v", jsonData)
+	// build the request
 	request, err := http.NewRequest("POST", "http://authentication-service/authenticate", bytes.NewBuffer(jsonData)) // prepare json
 	if err != nil {
 		app.errorJSON(w, err)
 		return
 	}
 
+	// call authentication service
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
 	}
-	defer response.Body.Close()
+	defer response.Body.Close() //defer delay exec of a function (close) until nearby function returns
 
 	// make sure we get back the correct status code
 	if response.StatusCode == http.StatusUnauthorized {
@@ -85,15 +87,18 @@ func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 		return
 	}
 
+	// auth service set this true in errorJson when invalid credentials or bad request
 	if jsonFromService.Error {
 		app.errorJSON(w, err, http.StatusUnauthorized)
 		return
 	}
 
+	// build jsonResponse to send to client
 	var payload jsonResponse
 	payload.Error = false
 	payload.Message = "Authenticated!"
 	payload.Data = jsonFromService.Data
 
+	//send response to client
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
