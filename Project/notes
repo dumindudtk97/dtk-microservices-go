@@ -7,3 +7,8 @@ Remember to connect to pgadmin as host : Postgres   // since it's running on doc
 net stop winnat
 docker start container_name
 net start winnat
+
+before logger service added to container,
+it listen to the localhost 27017
+
+

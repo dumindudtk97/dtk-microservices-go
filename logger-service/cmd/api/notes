@@ -1,0 +1,5 @@
+Use official (drivers) package to connect to mongo
+see documentation
+ go get go.mongodb.org/mongo-driver
+ go get go.mongodb.org/mongo-driver/mongo 
+ go get go.mongodb.org/mongo-driver/mongo/options
