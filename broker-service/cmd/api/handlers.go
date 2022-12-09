@@ -24,23 +24,25 @@ func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
 		Error:   false,
 		Message: "Hit the broker",
 	}
-
 	_ = app.writeJSON(w, http.StatusOK, payload)
-
 }
 
 // handle all requests
 func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 	var requestPayload RequestPayload
 
-	err := app.readJSON(w, r, &requestPayload)
+	err := json.NewDecoder(r.Body).Decode(&requestPayload)
 	if err != nil {
-		app.errorJSON(w, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	//fmt.Fprintf(w, "requestPayload: %+v", requestPayload)
+	log.Printf("requestPayload in HS is %+v", requestPayload)
+
 	switch requestPayload.Action {
 	case "auth":
+		log.Println("auth selected")
 		app.authenticate(w, requestPayload.Auth) //handle authentication
 	default:
 		app.errorJSON(w, errors.New("unknown action"))
@@ -55,6 +57,7 @@ func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 	// build the request
 	request, err := http.NewRequest("POST", "http://authentication-service/authenticate", bytes.NewBuffer(jsonData)) // prepare json
 	if err != nil {
+		log.Printf("preparing request failed")
 		app.errorJSON(w, err)
 		return
 	}
@@ -63,6 +66,7 @@ func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
+		log.Printf("calling auth sevice failed")
 		app.errorJSON(w, err)
 		return
 	}
@@ -73,7 +77,7 @@ func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 		app.errorJSON(w, errors.New("invalid credentials"))
 		return
 	} else if response.StatusCode != http.StatusAccepted {
-		app.errorJSON(w, errors.New("error calling auth service"))
+		app.errorJSON(w, errors.New("error response from calling auth service"))
 		return
 	}
 

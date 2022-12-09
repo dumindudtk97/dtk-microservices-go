@@ -12,6 +12,8 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+    networks:
+      - postgres
   
   authentication-service:
     build:

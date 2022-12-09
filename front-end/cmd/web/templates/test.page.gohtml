@@ -59,9 +59,13 @@
             headers: headers,
         }
 
+        sent.innerHTML = JSON.stringify(payload, undefined, 4);
+
         fetch("http:\/\/localhost:8080/handle", body)
         .then((response) => response.json())
         .then((data) => {
+            console.log(data);
+            console.log("if this prints error come from stringyfy most likely, else response.json() gives error");
             sent.innerHTML = JSON.stringify(payload, undefined, 4);
             received.innerHTML = JSON.stringify(data, undefined, 4);
             if (data.error) {
@@ -71,7 +75,7 @@
             }
         })
         .catch((error) => {
-            output.innerHTML += "<br><br>Eror: " + error;
+            output.innerHTML += "<br><br>Error broker handle: " + error;
         })
     })
 

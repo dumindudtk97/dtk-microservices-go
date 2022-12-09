@@ -26,8 +26,5 @@ func (app *Config) routes() http.Handler {
 
 	mux.Post("/authenticate", app.Authenticate)
 
-	//test: handling request json body
-	mux.Post("/testingjson", app.personCreate)
-
 	return mux
 }
