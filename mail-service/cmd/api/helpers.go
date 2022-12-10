@@ -19,6 +19,7 @@ func (app *Config) readJSON(w http.ResponseWriter, r *http.Request, data any) er
 
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
+	// simple jso decorder to get request body
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(data)
 	if err != nil {

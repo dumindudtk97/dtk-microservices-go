@@ -1,32 +1,45 @@
 package main
 
-//	go get github.com/vanng822/go-premailer/premailer
-//	go get github.com/xhit/go-simple-mail/v2
+import (
+	"bytes"
+	"html/template"
 
+	"log"
+	"time"
+
+	//Package premailer is for inline styling (use css and auto convert)
+	"github.com/vanng822/go-premailer/premailer"
+	// Go Simple Mail is a simple and efficient package to send emails.
+	mail "github.com/xhit/go-simple-mail/v2"
+)
+
+// setup the instance of mail with appropriate configurations
 type Mail struct {
-	Domain string
-	Host string
-	Port int
-	Username string
-	Password string
-	Encrption string
+	Domain      string
+	Host        string
+	Port        int
+	Username    string
+	Password    string
+	Encryption  string
 	FromAddress string
-	FromName string
+	FromName    string
 }
 
+// contents of email
 type Message struct {
-	From string
-	FromName string
-	To string
-	Subject string
-	Attachment []string
-	Data any
-	DataMap map[string]any
+	From        string
+	FromName    string
+	To          string
+	Subject     string
+	Attachments []string
+	Data        any
+	DataMap     map[string]any
 }
 
-func (m *Mail) SendSMTPMessage(msg Message) error{
-	
-	//make sure from are set 
+// function to send a email message
+func (m *Mail) SendSMTPMessage(msg Message) error {
+
+	// make sure to fill from address and name
 	if msg.From == "" {
 		msg.From = m.FromAddress
 	}
@@ -34,101 +47,147 @@ func (m *Mail) SendSMTPMessage(msg Message) error{
 		msg.FromName = m.FromName
 	}
 
+	// data map to pass to template
 	data := map[string]any{
 		"message": msg.Data,
 	}
 
 	msg.DataMap = data
 
+	// build html version of the message (with inclineCSS)
 	formattedMessage, err := m.buildHTMLMessage(msg)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 
-	plainMsg, err := m.buidPlainTextMessage(msg)
+	// build plaintext version of the message
+	plainMessage, err := m.buildPlainTextMessage(msg)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 
-	server = mail.new(smtpClient)
+	//building the mail server
+	server := mail.NewSMTPClient()
+	server.Host = m.Host
+	server.Port = m.Port
+	server.Username = m.Username
+	server.Password = m.Password
+	server.Encryption = m.getEncryption(m.Encryption)
+	server.KeepAlive = false
+	server.ConnectTimeout = 10 * time.Second
+	server.SendTimeout = 10 * time.Second
 
-	server.host = m.host 
-	server.port = m.port
-	server.username = m.username
-	server.password = m.password
-	server.encryption = m.getEncryption(m.Encrption)
-	server.keepAlive = false
-	server.timeout = time.Second * 10
-	server.sendtimeout = time.Second * 10
-
-	client, err = smtpClient()
+	// start smtp client server
+	smtpClient, err := server.Connect()
 	if err != nil {
-		log.Panic(err)
+		log.Println("Can't do server.Connect() with mail.NewSMTPClient(), smtpClient not created")
+		return err
 	}
-	
-	
-	
 
+	// create email from recieved parameter msg
+	email := mail.NewMSG() //NewMSG creates a new email.
+	// set parameters
+	email.SetFrom(msg.From).
+		AddTo(msg.To).
+		SetSubject(msg.Subject)
+	// adding body to email
+	email.SetBody(mail.TextPlain, plainMessage) //SetBody sets the body of the email message.
+	email.AddAlternative(mail.TextHTML, formattedMessage)
+
+	// add attachments to email
+	if len(msg.Attachments) > 0 {
+		for _, x := range msg.Attachments {
+			email.AddAttachment(x)
+		}
+	}
+
+	//send email //email and client has all info needed
+	err = email.Send(smtpClient)
+	if err != nil {
+		log.Println("Can't do email.send with smtpClient")
+		return err
+	}
+
+	return nil
 }
 
-func (m *Mail) buildHTMLMessage(msg) (string, error) {
-	templateToRender := ""./template/mail.gohtml
+func (m *Mail) buildHTMLMessage(msg Message) (string, error) {
 
-	t := template.FromHTMLTemplate
-
-
+	// html template
+	templateToRender := "./templates/mail.html.gohtml"
+	t, err := template.New("email-html").ParseFiles(templateToRender)
 	if err != nil {
-		log.Panic(err)
+		log.Println("can't open html template file", err)
+		return "", err
 	}
 
-
-	if err != nil {
-		log.Panic(err)
+	var tpl bytes.Buffer // to read template into
+	if err = t.ExecuteTemplate(&tpl, "body", msg.DataMap); err != nil {
+		return "", err
 	}
 
-	formattedMessage := 
-
+	formattedMessage := tpl.String()
+	// inline CSS is used to apply a unique style to a single HTML element
 	formattedMessage, err = m.inlineCSS(formattedMessage)
 	if err != nil {
-		log.Panic(err)
+		return "", err
 	}
 
 	return formattedMessage, nil
-
 }
 
+func (m *Mail) buildPlainTextMessage(msg Message) (string, error) {
 
-func (m *Mail) inlineCSS(f string) (string, error) {
-	var options = premailer.Options{
-		removeClass: false,
-	}
-
-	prim = premailer.new(premailer)
-
+	// . is current directory then ./templates
+	templateToRender := "./templates/mail.plain.gohtml"
+	t, err := template.New("email-plain").ParseFiles(templateToRender)
 	if err != nil {
-		log.Panic(err)
+		log.Println("can't open plain template file", err)
+		return "", err
 	}
 
-	html := prim.response
+	var tpl bytes.Buffer
+	// execute template and add datamap to tpl
+	if err = t.ExecuteTemplate(&tpl, "body", msg.DataMap); err != nil {
+		return "", err
+	}
+
+	plainMessage := tpl.String() // tpl to string (plaintext)
+
+	return plainMessage, nil
+}
+
+func (m *Mail) inlineCSS(s string) (string, error) {
+	options := premailer.Options{
+		RemoveClasses:     false,
+		CssToAttributes:   false,
+		KeepBangImportant: true,
+	}
+
+	//create a premailer instance
+	prem, err := premailer.NewPremailerFromString(s, &options)
+	if err != nil {
+		return "", err
+	}
+
+	//transform and inlining css
+	html, err := prem.Transform()
+	if err != nil {
+		return "", err
+	}
 
 	return html, nil
-
 }
 
-func (m *Mail) buidPlainTextMessage(f string) (string, error){
-	
-	plainMsg 
-
-	return plainMsg, nil
-}
-
-func (m *Mail) getEncryption(f s) (string, error){
+func (m *Mail) getEncryption(s string) mail.Encryption {
 	switch s {
-	case SSL:
-		mail.encryptssl = true
-	case TLS:
-		mail.encrypttls = true
-	case None:
-		mail.encrypt = false
+	case "tls":
+		return mail.EncryptionSTARTTLS
+	case "ssl":
+		return mail.EncryptionSSLTLS
+	case "none", "":
+		return mail.EncryptionNone
+	default:
+		return mail.EncryptionSTARTTLS
 	}
 }

@@ -3,6 +3,7 @@ version: '3'
 services:
 
   broker-service:
+    container_name: broker-service
     build:
       context: ./../broker-service
       dockerfile: ./../broker-service/broker-service.dockerfile
@@ -16,7 +17,41 @@ services:
       - postgres
       - logger
   
+  mail-service:
+    container_name: mail-service
+    build:
+      context: ./../mail-service
+      dockerfile: ./../mail-service/mail-service.dockerfile
+    restart: always
+    ports:
+      - "8083:80"
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      MAIL_PORT: 1025
+      MAIL_DOMAIN: localhost
+      MAIL_HOST: mailhog
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      ENCRYPTION: none
+      FROM_ADDRESS: dumindudtk@example.com 
+      FROM_NAME: "Dumindu DTK"
+    networks:
+      - logger
+      - mail
+
+  mailhog:
+    container_name: mailhog
+    image: 'mailhog/mailhog:latest'
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - mail
+
   authentication-service:
+    container_name: authentication-service
     build:
       context: ./../authentication-service
       dockerfile: ./../authentication-service/authentication-service.dockerfile
@@ -84,6 +119,7 @@ services:
     container_name: mongo-express
     ports:
       - 8082:8081
+    restart: always
     environment:
       - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
       - ME_CONFIG_MONGODB_ADMINPASSWORD=password
@@ -92,6 +128,7 @@ services:
       - mongo-express-network
 
   logger-service:
+    container_name: logger-service
     build:
       context: ./../logger-service
       dockerfile: ./../logger-service/logger-service.dockerfile
@@ -104,12 +141,6 @@ services:
     networks:
       - mongo
       - logger
-
-  mailhog:
-    image: 'mailhog/mailhog:latest'
-    ports:
-      - "1025:1025"
-      - "8025:8025"
       
 networks:
   postgres:
@@ -119,6 +150,8 @@ networks:
   logger:
     driver: bridge
   mongo-express-network:
+    driver: bridge
+  mail:
     driver: bridge
 
 volumes:

@@ -16,4 +16,4 @@ For mail-service, use 3rd party package:
 	go get github.com/vanng822/go-premailer/premailer
 	go get github.com/xhit/go-simple-mail/v2
 	
-
+In mail service: templates are located inside the server and obtained by the executable
