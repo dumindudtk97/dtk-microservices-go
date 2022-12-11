@@ -13,6 +13,7 @@ type RequestPayload struct {
 	Action string      `json:"action"`
 	Auth   AuthPayload `json:"auth,omitempty"`
 	Log    LogPayload  `json:"log,omitempty"`
+	Mail   MailPayload `json:"mail,omitempty"`
 }
 
 type AuthPayload struct {
@@ -23,6 +24,13 @@ type AuthPayload struct {
 type LogPayload struct {
 	Name string `json:"name"`
 	Data string `json:"data"`
+}
+
+type MailPayload struct {
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Message string `json:"message"`
 }
 
 func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +60,10 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 		app.authenticate(w, requestPayload.Auth) //handle authentication
 	case "log":
 		log.Println("log selected")
-		app.logItem(w, requestPayload.Log) //handle authentication
+		app.logItem(w, requestPayload.Log) //handle log
+	case "mail":
+		log.Println("mail selected")
+		app.sendMail(w, requestPayload.Mail) //handle mail
 	default:
 		app.errorJSON(w, errors.New("unknown action"))
 	}
@@ -148,5 +159,46 @@ func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 	payload.Data = jsonFromService.Data
 
 	//send response to client
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) sendMail(w http.ResponseWriter, m MailPayload) {
+
+	jsonData, _ := json.MarshalIndent(m, "", "\t")
+	log.Printf("jsonData: %#v", jsonData)
+
+	mailServiceURL := "http://mail-service/send"
+
+	// build the request
+	request, err := http.NewRequest("POST", mailServiceURL, bytes.NewBuffer(jsonData)) // prepare json
+	if err != nil {
+		log.Printf("preparing mail request failed")
+		app.errorJSON(w, err)
+		return
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	// call mail service
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Printf("calling mail sevice failed")
+		app.errorJSON(w, err)
+		return
+	}
+	defer response.Body.Close() //defer delay exec of a function (close) until nearby function returns
+
+	// make sure we get back the correct status code
+	if response.StatusCode != http.StatusAccepted {
+		app.errorJSON(w, errors.New("error response from calling mail service"))
+		return
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: "email sent to " + m.To,
+	}
+
 	app.writeJSON(w, http.StatusAccepted, payload)
 }

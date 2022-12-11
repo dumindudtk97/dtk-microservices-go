@@ -17,3 +17,6 @@ For mail-service, use 3rd party package:
 	go get github.com/xhit/go-simple-mail/v2
 	
 In mail service: templates are located inside the server and obtained by the executable
+
+Mail service is exposed to the internet (anyone can send mail with it via broker if send the right payload) (also port is exposed, also can directly send)
+

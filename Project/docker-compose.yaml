@@ -16,6 +16,9 @@ services:
     networks:
       - postgres
       - logger
+      - rabbitmq-network
+    depends_on:
+      - rabbitmq
   
   mail-service:
     container_name: mail-service
@@ -65,6 +68,9 @@ services:
       DSN: "host=postgres port=5432 user=postgres password=password dbname=users sslmode=disable timezone=UTC connect_timeout=5"
     networks:
       - postgres
+      - rabbitmq-network
+    depends_on:
+      - rabbitmq
 
   postgres:
     container_name: postgres
@@ -142,6 +148,23 @@ services:
       - mongo
       - logger
       
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.10.10-management-alpine
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    deploy:
+      mode: replicated
+      replicas: 1
+    volumes:
+      - ./db-data/rabbit-mq/data/:/var/lib/rabbitmq
+      - ./db-data/rabbit-mq/log/:/var/log/rabbitmq
+      - ./db-data/rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks:
+      - rabbitmq-network
+
 networks:
   postgres:
     driver: bridge
@@ -152,6 +175,8 @@ networks:
   mongo-express-network:
     driver: bridge
   mail:
+    driver: bridge
+  rabbitmq-network:
     driver: bridge
 
 volumes:
