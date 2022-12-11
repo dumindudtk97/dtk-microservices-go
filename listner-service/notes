@@ -2,3 +2,6 @@ https://www.rabbitmq.com/tutorials/tutorial-one-go.html
 
 rabbitmq driver
 go get github.com/rabbitmq/amqp091-go
+
+// learned channels, go routines, selectors
+https://www.golang-book.com/books/intro/10

@@ -47,6 +47,7 @@ services:
   mailhog:
     container_name: mailhog
     image: 'mailhog/mailhog:latest'
+    restart: always
     ports:
       - "1025:1025"
       - "8025:8025"
@@ -110,6 +111,7 @@ services:
     image: 'mongo:4.2.16-bionic'
     ports:
       - "27017:27017"
+    restart: always
     environment:
       MONGO_INITDB_DATABASE: logs
       MONGO_INITDB_ROOT_USERNAME: admin
@@ -132,6 +134,7 @@ services:
       - ME_CONFIG_MONGODB_SERVER=mongodb
     networks:
       - mongo-express-network
+      - mongo
 
   logger-service:
     container_name: logger-service
@@ -164,6 +167,25 @@ services:
       - ./db-data/rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     networks:
       - rabbitmq-network
+
+# ports not needed to be exposed
+  listner-service:
+    container_name: listner-service
+    build:
+      context: ./../listner-service
+      dockerfile: ./../listner-service/listner-service.dockerfile
+    restart: always
+    ports:
+      - "8084:80"
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - logger
+      - rabbitmq-network
+      - mail
+    depends_on:
+      - rabbitmq
 
 networks:
   postgres:

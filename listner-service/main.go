@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"listner-service/event"
 	"log"
 	"math"
+	"os"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -15,11 +17,24 @@ func main() {
 	conn, err := connect()
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
+
 	// start listning to msgs
+	log.Println("Start listning and consuming messages")
 
-	// create a consumer
+	// create consumer
+	consumer, err := event.NewConsumer(conn)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("consumer created")
 
-	// watch the queue and consume events from topics
+	// listen and consume events
+	err = consumer.Listen([]string{"rabbiLog.INFO", "rabbiLog.WARNING", "rabbiLog.ERROR", "auth.AUTHENTICATE"})
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println("consumer listening to", "rabbiLog.INFO", "rabbiLog.WARNING", "rabbiLog.ERROR", "auth.AUTHENTICATE")
 
 }
 
@@ -31,7 +46,7 @@ func connect() (*amqp.Connection, error) {
 
 	// don't continue until rabbit is ready
 	for {
-		amqpURL := "amqp://guest:guest@localhost"
+		amqpURL := "amqp://guest:guest@rabbitmq" //docker service
 		c, err := amqp.Dial(amqpURL)
 		if err != nil {
 			fmt.Println("RabbitMQ not yet ready...")
@@ -60,5 +75,6 @@ func connect() (*amqp.Connection, error) {
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err)
+		os.Exit(1)
 	}
 }

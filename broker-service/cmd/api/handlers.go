@@ -1,6 +1,7 @@
 package main
 
 import (
+	"broker/cmd/api/event"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -10,10 +11,16 @@ import (
 
 // define a json request payload (map)
 type RequestPayload struct {
-	Action string      `json:"action"`
-	Auth   AuthPayload `json:"auth,omitempty"`
-	Log    LogPayload  `json:"log,omitempty"`
-	Mail   MailPayload `json:"mail,omitempty"`
+	Action          string          `json:"action"`
+	Auth            AuthPayload     `json:"auth,omitempty"`
+	Log             LogPayload      `json:"log,omitempty"`
+	Mail            MailPayload     `json:"mail,omitempty"`
+	RabbitmqPayload RabbitmqPayload `json:"rabbitmqPayload,omitempty"`
+}
+
+type RabbitmqPayload struct {
+	Name string `json:"name"`
+	Data string `json:"data"`
 }
 
 type AuthPayload struct {
@@ -201,4 +208,46 @@ func (app *Config) sendMail(w http.ResponseWriter, m MailPayload) {
 	}
 
 	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+// logEventwithRabbit: logs event using the logger-service.
+// done by pushing to rabbitmq
+// listner-service receives event and call logging-service to do the logging
+func (app *Config) logEventViaRabbit(w http.ResponseWriter, l LogPayload) {
+	err := app.pushToQueue(l.Name, l.Data)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+
+	var payload jsonResponse
+	payload.Error = false
+	payload.Message = "logged via RabbitMQ"
+
+	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+// pushToQueue pushes a message into RabbitMQ
+func (app *Config) pushToQueue(name, msg string) error {
+	publisher, err := event.NewEventPublisher(app.Rabbitmq)
+	if err != nil {
+		return err
+	}
+
+	rabbitpayload := RabbitmqPayload{
+		Name: name,
+		Data: msg,
+	}
+
+	payload := RequestPayload{
+		Action:          "rabbiLog",
+		RabbitmqPayload: rabbitpayload,
+	}
+
+	j, _ := json.MarshalIndent(&payload, "", "\t")
+	err = publisher.Push(string(j), "rabbiLog.INFO")
+	if err != nil {
+		return err
+	}
+	return nil
 }
